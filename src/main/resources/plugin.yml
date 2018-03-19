@@ -1,0 +1,14 @@
+name: PolyPoints
+version: inDev
+description: In-dev version of a polygon spawnpoint selector
+author: TheBlockBender
+
+main: me.theblockbender.polypoints.Main
+database: false
+depend: [WorldEdit, WorldGuard]
+
+commands:
+  polypoint:
+     description: Pick a random point in a polygon selection
+     permission: polypoint.set
+     usage: "Proper usage: /polypoint <region.name>"
