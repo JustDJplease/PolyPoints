@@ -1,9 +1,6 @@
 package me.theblockbender.polypoints.commands;
 
-import com.sk89q.worldedit.*;
 import com.sk89q.worldedit.bukkit.BukkitUtil;
-import com.sk89q.worldedit.internal.LocalWorldAdapter;
-import com.sk89q.worldedit.regions.Polygonal2DRegion;
 import com.sk89q.worldguard.bukkit.WGBukkit;
 import com.sk89q.worldguard.protection.regions.ProtectedPolygonalRegion;
 import com.sk89q.worldguard.protection.regions.ProtectedRegion;
@@ -17,8 +14,7 @@ import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
 
-import java.util.ArrayList;
-import java.util.List;
+import java.util.concurrent.ThreadLocalRandom;
 
 public class PointCommand implements CommandExecutor {
 
@@ -55,35 +51,48 @@ public class PointCommand implements CommandExecutor {
 
         ProtectedPolygonalRegion polygonalRegion = (ProtectedPolygonalRegion) region;
         if (polygonalRegion.volume() < 1) {
-            // Unsure when this would be the case.
-            // Added it as a protective measure, to prevent unneccecary point generating.
             sender.sendMessage("The region " + regionName + " has a negative volume.");
             return true;
         }
+        Location found = new Location(world, 0, 0, 0);
+        int attempt = -1;
+        boolean criteriaMet;
+        int minX = polygonalRegion.getMinimumPoint().getBlockX();
+        int maxX = polygonalRegion.getMaximumPoint().getBlockX();
+        int minY = polygonalRegion.getMinimumPoint().getBlockY();
+        int maxY = polygonalRegion.getMaximumPoint().getBlockY();
+        int minZ = polygonalRegion.getMinimumPoint().getBlockZ();
+        int maxZ = polygonalRegion.getMaximumPoint().getBlockZ();
 
-        LocalSession session = WorldEdit.getInstance().getSession(player.getName());
-        LocalWorld localWorld = LocalWorldAdapter.adapt(session.getSelectionWorld());
-        Polygonal2DRegion weRegion = new Polygonal2DRegion(localWorld, polygonalRegion.getPoints(), polygonalRegion.getMinimumPoint().getBlockY(), polygonalRegion.getMaximumPoint().getBlockY());
-
-        List<Block> possibleBlocks = new ArrayList<>();
-
-        for (BlockVector block : weRegion) {
-            Block bukkitBlock = BukkitUtil.toBlock(new BlockWorldVector(localWorld, block));
-            Material type = bukkitBlock.getType();
-            if (type == Material.AIR)
+        do {
+            criteriaMet = false;
+            attempt++;
+            int x = ThreadLocalRandom.current().nextInt(minX, maxX + 1);
+            int z = ThreadLocalRandom.current().nextInt(minZ, maxZ + 1);
+            int y = world.getHighestBlockYAt(x, z);
+            if (y < minY || y > maxY)
                 continue;
-            if (!main.validFloorMaterials.contains(type))
+            found = new Location(world, x, y, z);
+            Block block = found.getBlock();
+            if (!main.validFloorMaterials.contains(block.getType()))
                 continue;
-            possibleBlocks.add(bukkitBlock);
-        }
-        if (possibleBlocks.isEmpty()) {
-            sender.sendMessage("The region " + regionName + " has no valid spawn blocks.");
+            Block airSpaceAbove = found.getBlock();
+            if (airSpaceAbove.getType() != Material.AIR)
+                continue;
+            Block airSpaceTwoAbove = found.add(0, 1, 0).getBlock();
+            if (airSpaceTwoAbove.getType() != Material.AIR)
+                continue;
+            criteriaMet = true;
+        } while (!polygonalRegion.contains(BukkitUtil.toVector(found)) && !criteriaMet && attempt < 100);
+        if (attempt == 100) {
+            sender.sendMessage("Unable to generate a random spawnable point in the region " + regionName + ".");
             return true;
         }
-        int id = main.random.nextInt(possibleBlocks.size());
-        Block random = possibleBlocks.get(id);
-        Location location = random.getLocation().clone().add(0, 1, 0);
-        sender.sendMessage("Picked random block at x=" + location.getBlockX() + " y=" + location.getBlockY() + " z=" + location.getBlockZ());
+        if (!criteriaMet) {
+            sender.sendMessage("Unable to generate a random spawnable point in the region " + regionName + ".");
+            return true;
+        }
+        sender.sendMessage("Found spawnable point for " + regionName + " at x=" + found.getBlockX() + " y=" + found.getBlockY() + " z=" + found.getBlockZ() + ".");
         return true;
     }
 }
