@@ -5,6 +5,8 @@ import com.sk89q.worldguard.bukkit.WGBukkit;
 import com.sk89q.worldguard.protection.regions.ProtectedPolygonalRegion;
 import com.sk89q.worldguard.protection.regions.ProtectedRegion;
 import me.theblockbender.polypoints.Main;
+import net.md_5.bungee.api.chat.ClickEvent;
+import net.md_5.bungee.api.chat.TextComponent;
 import org.apache.commons.lang.WordUtils;
 import org.bukkit.Location;
 import org.bukkit.Material;
@@ -15,7 +17,8 @@ import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
 
-import java.util.Map;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.concurrent.ThreadLocalRandom;
 
 public class PointCommand implements CommandExecutor {
@@ -51,19 +54,20 @@ public class PointCommand implements CommandExecutor {
             return true;
         }
 
-        for(Location location : main.preLoadedSpawnLocations){
-            sender.sendMessage("Found location: " + location.getBlockX() + " " + location.getBlockY() + " " + location.getBlockZ());
+        List<Location> locations = main.preLoadedSpawnLocations.get(regionName);
+        sender.sendMessage("Found " + locations.size() + " locations to spawn an entity at.");
+        for (Location location : locations) {
+            TextComponent message = new TextComponent("--> " + location.getBlockX() + " " + location.getBlockY() + " " + location.getBlockZ());
+            message.setClickEvent(new ClickEvent(ClickEvent.Action.SUGGEST_COMMAND, "/minecraft:tp " + player.getName() + " " + location.getBlockX() + " " + location.getBlockY() + " " + location.getBlockZ()));
+            player.spigot().sendMessage(message);
         }
-        sender.sendMessage("//");
-        // TODO hashmap - list.
         return true;
     }
 
     public void populateRegion(World world, String regionName, ProtectedRegion region) {
         ProtectedPolygonalRegion polygonalRegion = (ProtectedPolygonalRegion) region;
-        Location found = new Location(world, 0, 0, 0);
+        Location found;
         int attempt = 0;
-        boolean criteriaMet = false;
         System.out.print("[REGION STATISTICS]------------");
         int minX = polygonalRegion.getMinimumPoint().getBlockX();
         System.out.print("MinX = " + minX);
@@ -77,36 +81,22 @@ public class PointCommand implements CommandExecutor {
         System.out.print("MinZ = " + minZ);
         int maxZ = polygonalRegion.getMaximumPoint().getBlockZ();
         System.out.print("MaxZ = " + maxZ);
-
+        List<Location> locationList = new ArrayList<>();
         while (attempt < 100) {
-            criteriaMet = false;
             attempt++;
             System.out.print("[" + attempt + "/100]------------");
             int x = ThreadLocalRandom.current().nextInt(minX, maxX + 1);
             int z = ThreadLocalRandom.current().nextInt(minZ, maxZ + 1);
-            int y = world.getHighestBlockYAt(x, z);
-            found = new Location(world, x, y, z);
-            System.out.print("Y = " + y);
-            Block block = found.getBlock();
-            if (block.getType() == Material.AIR) {
-                System.out.print("Material was air");
-                while (block.getType() == Material.AIR && found.getBlockY() >= minY) {
-                    System.out.print("Moving down 1 block.");
-                    found.add(0, -1, 0);
-                    y = found.getBlockY();
-                    System.out.print("Y = " + y);
-                    block = found.getBlock();
-
-                }
+            int y = getHighestYAt(new Location(world, x, maxY, z), minY);
+            if (y == -1) {
+                System.out.print("Y is outside the range of the polygon. Max = " + maxY + ", Min = " + minY);
+                continue;
             }
             System.out.print("x = " + x);
             System.out.print("y = " + y);
             System.out.print("z = " + z);
-            if (y < minY || y > maxY) {
-                System.out.print("Y is outside the range of the polygon. Max = " + maxY + ", Min = " + minY);
-                continue;
-            }
             found = new Location(world, x, y, z);
+            Block block = found.getBlock();
             if (!main.validFloorMaterials.contains(block.getType())) {
                 System.out.print("This block is not on the list of valid floor materials. Type = " + WordUtils.capitalizeFully(block.getType().name().replace("_", " ")));
                 continue;
@@ -125,9 +115,22 @@ public class PointCommand implements CommandExecutor {
                 System.out.print("The airSpace TWO above this block is not Air. Type = " + WordUtils.capitalizeFully(airSpaceTwoAbove.getType().name().replace("_", " ")));
                 continue;
             }
-            criteriaMet = true;
-            main.preLoadedSpawnLocations.put(regionName, found.add(0, -1, 0));
+            locationList.add(found.add(0, -1, 0));
         }
+        main.preLoadedSpawnLocations.put(regionName, locationList);
         System.out.print("Point generating for region " + regionName + " has finished after " + attempt + " attempts.");
+        System.out.print(locationList.size() + " points have been created for the region " + regionName);
+    }
+
+    private Integer getHighestYAt(Location locationIncludingYmax, int minY) {
+        int y = locationIncludingYmax.getBlockY();
+        while (y >= minY) {
+            locationIncludingYmax.setY(y);
+            Block block = locationIncludingYmax.getBlock();
+            if (block.getType().isSolid())
+                return y;
+            y--;
+        }
+        return -1;
     }
 }
