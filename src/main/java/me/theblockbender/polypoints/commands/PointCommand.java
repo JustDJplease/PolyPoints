@@ -7,7 +7,6 @@ import com.sk89q.worldguard.protection.regions.ProtectedRegion;
 import me.theblockbender.polypoints.Main;
 import net.md_5.bungee.api.chat.ClickEvent;
 import net.md_5.bungee.api.chat.TextComponent;
-import org.apache.commons.lang.WordUtils;
 import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.World;
@@ -65,61 +64,46 @@ public class PointCommand implements CommandExecutor {
     }
 
     public void populateRegion(World world, String regionName, ProtectedRegion region) {
+        long timeAtStart = System.currentTimeMillis();
         ProtectedPolygonalRegion polygonalRegion = (ProtectedPolygonalRegion) region;
         Location found;
         int attempt = 0;
-        System.out.print("[REGION STATISTICS]------------");
         int minX = polygonalRegion.getMinimumPoint().getBlockX();
-        System.out.print("MinX = " + minX);
         int maxX = polygonalRegion.getMaximumPoint().getBlockX();
-        System.out.print("MaxX = " + maxX);
         int minY = polygonalRegion.getMinimumPoint().getBlockY();
-        System.out.print("MinY = " + minY);
         int maxY = polygonalRegion.getMaximumPoint().getBlockY();
-        System.out.print("MaxY = " + maxY);
         int minZ = polygonalRegion.getMinimumPoint().getBlockZ();
-        System.out.print("MinZ = " + minZ);
         int maxZ = polygonalRegion.getMaximumPoint().getBlockZ();
-        System.out.print("MaxZ = " + maxZ);
         List<Location> locationList = new ArrayList<>();
         while (attempt < 100) {
             attempt++;
-            System.out.print("[" + attempt + "/100]------------");
             int x = ThreadLocalRandom.current().nextInt(minX, maxX + 1);
             int z = ThreadLocalRandom.current().nextInt(minZ, maxZ + 1);
             int y = getHighestYAt(new Location(world, x, maxY, z), minY);
             if (y == -1) {
-                System.out.print("Y is outside the range of the polygon. Max = " + maxY + ", Min = " + minY);
                 continue;
             }
-            System.out.print("x = " + x);
-            System.out.print("y = " + y);
-            System.out.print("z = " + z);
             found = new Location(world, x, y, z);
             Block block = found.getBlock();
-            if (!main.validFloorMaterials.contains(block.getType())) {
-                System.out.print("This block is not on the list of valid floor materials. Type = " + WordUtils.capitalizeFully(block.getType().name().replace("_", " ")));
+            if (!main.validFloorMaterials.contains(block.getType()))
                 continue;
-            }
-            if (!polygonalRegion.contains(BukkitUtil.toVector(found))) {
-                System.out.print("The point was not located inside the polygon.");
+
+            if (!polygonalRegion.contains(BukkitUtil.toVector(found)))
                 continue;
-            }
+
             Block airSpaceAbove = found.add(0, 1, 0).getBlock();
-            if (airSpaceAbove.getType() != Material.AIR) {
-                System.out.print("The airSpace ONE above this block is not Air. Type = " + WordUtils.capitalizeFully(airSpaceAbove.getType().name().replace("_", " ")));
+            if (airSpaceAbove.getType() != Material.AIR)
                 continue;
-            }
+
             Block airSpaceTwoAbove = found.add(0, 1, 0).getBlock();
-            if (airSpaceTwoAbove.getType() != Material.AIR) {
-                System.out.print("The airSpace TWO above this block is not Air. Type = " + WordUtils.capitalizeFully(airSpaceTwoAbove.getType().name().replace("_", " ")));
+            if (airSpaceTwoAbove.getType() != Material.AIR)
                 continue;
-            }
+
             locationList.add(found.add(0, -1, 0));
         }
         main.preLoadedSpawnLocations.put(regionName, locationList);
-        System.out.print("Point generating for region " + regionName + " has finished after " + attempt + " attempts.");
-        System.out.print(locationList.size() + " points have been created for the region " + regionName);
+        long duration = System.currentTimeMillis() - timeAtStart;
+        System.out.print("Generated " + locationList.size() + " points for the region " + regionName + ". (Took " + duration + " ms.)");
     }
 
     private Integer getHighestYAt(Location locationIncludingYmax, int minY) {
