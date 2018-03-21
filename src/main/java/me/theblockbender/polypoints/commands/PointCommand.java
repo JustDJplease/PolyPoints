@@ -63,6 +63,14 @@ public class PointCommand implements CommandExecutor {
         return true;
     }
 
+    /**
+     * This method creates a bunch of spawnpoints for a given location, and saves that to a HashMap(RegionName,LocationsList) if executed.
+     * This method is best executed on start. You might want to increase the attempt variable size, so that it is more likely to generate suiting points.
+     *
+     * @param world      The world that the region is in.
+     * @param regionName The name of the region.
+     * @param region     The ProtectedPolygonalRegion. (Please confirm if the region is a ProtectedPolygonalRegion prior to this method)
+     */
     public void populateRegion(World world, String regionName, ProtectedRegion region) {
         long timeAtStart = System.currentTimeMillis();
         ProtectedPolygonalRegion polygonalRegion = (ProtectedPolygonalRegion) region;
@@ -75,6 +83,7 @@ public class PointCommand implements CommandExecutor {
         int minZ = polygonalRegion.getMinimumPoint().getBlockZ();
         int maxZ = polygonalRegion.getMaximumPoint().getBlockZ();
         List<Location> locationList = new ArrayList<>();
+        // Increase the amount of attempts here.
         while (attempt < 100) {
             attempt++;
             int x = ThreadLocalRandom.current().nextInt(minX, maxX + 1);
@@ -106,6 +115,14 @@ public class PointCommand implements CommandExecutor {
         System.out.print("Generated " + locationList.size() + " points for the region " + regionName + ". (Took " + duration + " ms.)");
     }
 
+    /**
+     * Private method to get the highest solid block at a certain x and z position.
+     * This was added because World.getHighestYAt() returned unreliable results (mid-air).
+     *
+     * @param locationIncludingYmax This should be the highest point at the randomly generated x & z location. This way, the point can never be above the polygon.
+     * @param minY                  This is the lowest Y level, that this region has. This way, the point will never be below the polygon.
+     * @return The highest Y location at the x & z position.
+     */
     private Integer getHighestYAt(Location locationIncludingYmax, int minY) {
         int y = locationIncludingYmax.getBlockY();
         while (y >= minY) {
