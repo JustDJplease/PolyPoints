@@ -5,8 +5,6 @@ import com.sk89q.worldguard.bukkit.WGBukkit;
 import com.sk89q.worldguard.protection.regions.ProtectedPolygonalRegion;
 import com.sk89q.worldguard.protection.regions.ProtectedRegion;
 import me.theblockbender.polypoints.Main;
-import net.md_5.bungee.api.chat.ClickEvent;
-import net.md_5.bungee.api.chat.TextComponent;
 import org.apache.commons.lang.WordUtils;
 import org.bukkit.Location;
 import org.bukkit.Material;
@@ -17,6 +15,7 @@ import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
 
+import java.util.Map;
 import java.util.concurrent.ThreadLocalRandom;
 
 public class PointCommand implements CommandExecutor {
@@ -52,9 +51,18 @@ public class PointCommand implements CommandExecutor {
             return true;
         }
 
+        for(Location location : main.preLoadedSpawnLocations){
+            sender.sendMessage("Found location: " + location.getBlockX() + " " + location.getBlockY() + " " + location.getBlockZ());
+        }
+        sender.sendMessage("//");
+        // TODO hashmap - list.
+        return true;
+    }
+
+    public void populateRegion(World world, String regionName, ProtectedRegion region) {
         ProtectedPolygonalRegion polygonalRegion = (ProtectedPolygonalRegion) region;
         Location found = new Location(world, 0, 0, 0);
-        int attempt = -1;
+        int attempt = 0;
         boolean criteriaMet = false;
         System.out.print("[REGION STATISTICS]------------");
         int minX = polygonalRegion.getMinimumPoint().getBlockX();
@@ -70,10 +78,10 @@ public class PointCommand implements CommandExecutor {
         int maxZ = polygonalRegion.getMaximumPoint().getBlockZ();
         System.out.print("MaxZ = " + maxZ);
 
-        while (!polygonalRegion.contains(BukkitUtil.toVector(found)) && !criteriaMet && attempt < 100) {
+        while (attempt < 100) {
             criteriaMet = false;
             attempt++;
-            System.out.print("[" + attempt + "]------------");
+            System.out.print("[" + attempt + "/100]------------");
             int x = ThreadLocalRandom.current().nextInt(minX, maxX + 1);
             int z = ThreadLocalRandom.current().nextInt(minZ, maxZ + 1);
             int y = world.getHighestBlockYAt(x, z);
@@ -103,6 +111,10 @@ public class PointCommand implements CommandExecutor {
                 System.out.print("This block is not on the list of valid floor materials. Type = " + WordUtils.capitalizeFully(block.getType().name().replace("_", " ")));
                 continue;
             }
+            if (!polygonalRegion.contains(BukkitUtil.toVector(found))) {
+                System.out.print("The point was not located inside the polygon.");
+                continue;
+            }
             Block airSpaceAbove = found.add(0, 1, 0).getBlock();
             if (airSpaceAbove.getType() != Material.AIR) {
                 System.out.print("The airSpace ONE above this block is not Air. Type = " + WordUtils.capitalizeFully(airSpaceAbove.getType().name().replace("_", " ")));
@@ -114,22 +126,8 @@ public class PointCommand implements CommandExecutor {
                 continue;
             }
             criteriaMet = true;
+            main.preLoadedSpawnLocations.put(regionName, found.add(0, -1, 0));
         }
-        if (attempt == 100) {
-            sender.sendMessage("Unable to generate a random spawnable point in the region " + regionName + ".");
-            return true;
-        }
-        if (!criteriaMet) {
-            sender.sendMessage("Unable to generate a random spawnable point in the region " + regionName + ".");
-            return true;
-        }
-        Location finalLocation = found.add(0, -1, 0);
-        int finalX = finalLocation.getBlockX();
-        int finalY = finalLocation.getBlockY();
-        int finalZ = finalLocation.getBlockZ();
-        TextComponent message = new TextComponent("Found spawnable point for " + regionName + " at x = " + finalX + " y = " + finalY + " z = " + finalZ + ".");
-        message.setClickEvent(new ClickEvent(ClickEvent.Action.SUGGEST_COMMAND, "/minecraft:tp " + player.getName() + " " + finalX + " " + finalY + " " + finalZ));
-        player.spigot().sendMessage(message);
-        return true;
+        System.out.print("Point generating for region " + regionName + " has finished after " + attempt + " attempts.");
     }
 }
