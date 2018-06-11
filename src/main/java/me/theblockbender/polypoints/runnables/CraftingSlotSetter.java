@@ -26,14 +26,14 @@ public class CraftingSlotSetter extends BukkitRunnable implements Listener {
     public void run() {
         for (Player player : Bukkit.getOnlinePlayers()) {
             if (player.getGameMode() == GameMode.CREATIVE || player.getGameMode() == GameMode.SPECTATOR)
-                return;
+                continue;
             Inventory topInventory = player.getOpenInventory().getTopInventory();
             if (topInventory == null)
-                return;
+                continue;
             if (topInventory.getType() != InventoryType.CRAFTING)
-                return;
+                continue;
             if (interactingWith.contains(player.getUniqueId()))
-                return;
+                continue;
             // This would be the point to load the player's stored items.
             setItems(topInventory);
         }
