@@ -1,6 +1,7 @@
 package me.theblockbender.polypoints;
 
 import me.theblockbender.polypoints.commands.PointCommand;
+import me.theblockbender.polypoints.runnables.CraftingSlotSetter;
 import org.bukkit.Material;
 import org.bukkit.plugin.java.JavaPlugin;
 
@@ -16,6 +17,9 @@ public class Main extends JavaPlugin {
     public void onEnable() {
         populateFloor();
         getCommand("polypoint").setExecutor(new PointCommand(this));
+        CraftingSlotSetter craftingSlotSetter = new CraftingSlotSetter();
+        getServer().getPluginManager().registerEvents(craftingSlotSetter, this);
+        craftingSlotSetter.runTaskTimer(this, 0L, 1L);
     }
 
     private void populateFloor() {
